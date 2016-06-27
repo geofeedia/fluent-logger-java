@@ -38,7 +38,7 @@ public class RawSocketSender implements Sender {
 
     private MessagePack msgpack;
 
-    private SocketAddress server;
+    private SocketAddress lastServer;
 
     private Socket socket;
 
@@ -53,6 +53,10 @@ public class RawSocketSender implements Sender {
     private String name;
 
     private ErrorHandler errorHandler = DEFAULT_ERROR_HANDLER;
+
+	private String host;
+
+	private int port;
 
     public RawSocketSender() {
         this("localhost", 24224);
@@ -71,7 +75,8 @@ public class RawSocketSender implements Sender {
         msgpack = new MessagePack();
         msgpack.register(Event.class, Event.EventTemplate.INSTANCE);
         pendings = ByteBuffer.allocate(bufferCapacity);
-        server = new InetSocketAddress(host, port);
+        this.host = host;
+        this.port = port;
         this.reconnector = reconnector;
         name = String.format("%s_%d_%d_%d", host, port, timeout, bufferCapacity);
         this.timeout = timeout;
@@ -80,7 +85,8 @@ public class RawSocketSender implements Sender {
     private void connect() throws IOException {
         try {
             socket = new Socket();
-            socket.connect(server, timeout);
+            lastServer = new InetSocketAddress(host, port);
+            socket.connect(lastServer, timeout);
             out = new BufferedOutputStream(socket.getOutputStream());
         } catch (IOException e) {
             throw e;
@@ -162,7 +168,7 @@ public class RawSocketSender implements Sender {
         // buffering
         if (pendings.position() + bytes.length > pendings.capacity()) {
             if (!flushBuffer()) {
-                LOG.error("Cannot send logs to " + server.toString());
+                LOG.error("Cannot send logs to " + lastServer.toString());
                 return false;
             }
         }
